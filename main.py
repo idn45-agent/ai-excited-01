@@ -1,39 +1,48 @@
-#!/usr/bin/env python3
-"""ai-excited-01 entry: copy the bundled entry.png to the output directory.
+"""ai-excited-01 entry program.
 
-The image lives next to this program in the repository. The harness runs
-this file with MAKEFUN_OUTPUT_DIR set (or not); the copy must be a plain
-byte-for-byte copy so two runs always produce identical output bytes.
+Copies the bundled entry image (entry.png, stored next to this file)
+into the output directory as entry.png. The copy is a plain byte-for-byte
+transfer, so repeated runs always produce identical output.
+
+Output directory: the MAKEFUN_OUTPUT_DIR environment variable when set,
+otherwise /output. The directory is created when it does not exist yet.
 """
 
 import os
 import shutil
-import sys
+from pathlib import Path
 
-OUTPUT_NAME = "entry.png"
+ENTRY_NAME = "entry.png"
 DEFAULT_OUTPUT_DIR = "/output"
 
 
-def output_dir() -> str:
-    """Return the directory the harness wants the entry written to."""
-    return os.environ.get("MAKEFUN_OUTPUT_DIR") or DEFAULT_OUTPUT_DIR
+def source_path() -> Path:
+    """Location of the bundled entry image, beside this script."""
+    return Path(__file__).resolve().parent / ENTRY_NAME
 
 
-def main() -> int:
-    here = os.path.dirname(os.path.abspath(__file__))
-    source = os.path.join(here, OUTPUT_NAME)
-    target_dir = output_dir()
-    os.makedirs(target_dir, exist_ok=True)
-    target = os.path.join(target_dir, OUTPUT_NAME)
-    shutil.copyfile(source, target)
-    copied = os.path.getsize(target)
-    expected = os.path.getsize(source)
-    if copied != expected:
-        print(f"copy size mismatch: wrote {copied} of {expected} bytes", file=sys.stderr)
-        return 1
-    print(f"wrote {target} ({copied} bytes)")
-    return 0
+def output_dir() -> Path:
+    """Directory the entry image must be written to."""
+    configured = os.environ.get("MAKEFUN_OUTPUT_DIR", "").strip()
+    return Path(configured) if configured else Path(DEFAULT_OUTPUT_DIR)
+
+
+def deliver() -> Path:
+    """Copy the entry image into the output directory; return its path."""
+    src = source_path()
+    if not src.is_file():
+        raise SystemExit(f"entry image not found: {src}")
+    dest = output_dir() / ENTRY_NAME
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, dest)
+    if dest.stat().st_size != src.stat().st_size:
+        raise SystemExit(f"copy incomplete: {dest} differs from {src}")
+    return dest
+
+
+def main() -> None:
+    deliver()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
